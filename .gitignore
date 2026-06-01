@@ -27,3 +27,9 @@ measurements.csv
 /minio-data
 /rustfs-data
 /public/openapi.json
+
+#  openSenseIntelligence
+/project-notes/
+/.env.example
+docker-compose.yml
+package-lock.json
