@@ -98,3 +98,5 @@ IDW-Interpolation	Komplex, riesige Response (GeoJSON FeatureCollection), schwer 
 
 
 OSEM_API_URL im .env File neu setzen auf https://staging.opensensemap.org/api !!!!
+
+search_boxes tool funktioniert noch nicht richtig: es werden nicht die nächsten boxes zu einer koordinate ausgegeben sondern irgendwelche Boxen -> API Fehler?

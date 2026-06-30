@@ -3,18 +3,18 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { osemFetch } from "../lib/api-client";
 
 interface Sensor {
-  id: string;
+  _id: string;
   title: string;
   unit: string;
   sensorType: string;
-  lastMeasurement: { value: number; createdAt: string; sensorId: string } | null;
+  lastMeasurement: { value: string; createdAt: string } | null;
 }
 
 interface BoxDetails {
-  id: string;
+  _id: string;
   name: string;
   description: string | null;
-  tags: string[];
+  grouptag: string[];
   exposure: string;
   model: string | null;
   latitude: number;
@@ -27,33 +27,39 @@ interface BoxDetails {
 }
 
 export function registerGetBoxInfo(server: McpServer) {
-  server.tool(
+  server.registerTool(
     "get_box_info",
-    "Get detailed information about a specific senseBox station, including all its sensors and their latest measurements. Use this after search_boxes to inspect a particular station.",
     {
-      boxId: z.string().describe("The senseBox station ID"),
+      description:
+        "Get detailed information about a specific senseBox station, including all its sensors and their latest measurements. Use this after search_boxes to inspect a particular station.",
+      inputSchema: {
+        boxId: z.string().describe("The senseBox station ID"),
+      },
     },
     async ({ boxId }) => {
       const box = await osemFetch<BoxDetails>({
         path: `/boxes/${boxId}`,
       });
 
-      const sensorLines = box.sensors.map((s) => {
+      const sensors = box.sensors ?? [];
+      const tags = box.grouptag ?? [];
+
+      const sensorLines = sensors.map((s) => {
         const val = s.lastMeasurement
           ? `${s.lastMeasurement.value} ${s.unit} (${s.lastMeasurement.createdAt})`
           : "no data";
-        return `  - ${s.title} [${s.sensorType}]: ${val} (ID: ${s.id})`;
+        return `  - ${s.title} [${s.sensorType}]: ${val} (ID: ${s._id})`;
       });
 
       const text = [
-        `**${box.name}** (${box.id})`,
+        `**${box.name}** (${box._id})`,
         `Status: ${box.status} | Exposure: ${box.exposure} | Model: ${box.model ?? "custom"}`,
         `Location: [${box.latitude}, ${box.longitude}]`,
         box.description ? `Description: ${box.description}` : null,
-        box.tags.length > 0 ? `Tags: ${box.tags.join(", ")}` : null,
+        tags.length > 0 ? `Tags: ${tags.join(", ")}` : null,
         `Created: ${box.createdAt}`,
         ``,
-        `Sensors (${box.sensors.length}):`,
+        `Sensors (${sensors.length}):`,
         ...sensorLines,
       ]
         .filter(Boolean)

@@ -5,23 +5,26 @@ import { createExport } from "../lib/exports";
 import type { MeasurementPoint } from "../lib/summarize";
 
 export function registerExportData(server: McpServer) {
-  server.tool(
+  server.registerTool(
     "export_data",
-    "Export sensor measurement data as a downloadable file (JSON or CSV). Use this when users want to download data or when the dataset is too large to display inline. Returns a temporary download URL valid for 1 hour.",
     {
-      boxId: z.string().describe("The senseBox station ID"),
-      sensorId: z.string().describe("The sensor ID to export data from"),
-      fromDate: z
-        .string()
-        .describe("Start date in RFC3339 format, e.g. '2026-05-01T00:00:00Z'"),
-      toDate: z
-        .string()
-        .describe("End date in RFC3339 format, e.g. '2026-06-01T00:00:00Z'"),
-      format: z
-        .enum(["json", "csv"])
-        .optional()
-        .default("json")
-        .describe("Export format: 'json' or 'csv' (default: json)"),
+      description:
+        "Export sensor measurement data as a downloadable file (JSON or CSV). Use this when users want to download data or when the dataset is too large to display inline. Returns a temporary download URL valid for 1 hour.",
+      inputSchema: {
+        boxId: z.string().describe("The senseBox station ID"),
+        sensorId: z.string().describe("The sensor ID to export data from"),
+        fromDate: z
+          .string()
+          .describe("Start date in RFC3339 format, e.g. '2026-05-01T00:00:00Z'"),
+        toDate: z
+          .string()
+          .describe("End date in RFC3339 format, e.g. '2026-06-01T00:00:00Z'"),
+        format: z
+          .enum(["json", "csv"])
+          .optional()
+          .default("json")
+          .describe("Export format: 'json' or 'csv' (default: json)"),
+      },
     },
     async ({ boxId, sensorId, fromDate, toDate, format }) => {
       const rawData = await osemFetch<MeasurementPoint[]>({

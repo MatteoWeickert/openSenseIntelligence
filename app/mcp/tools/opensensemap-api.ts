@@ -13,24 +13,26 @@ GET /stats — Platform statistics [boxCount, measurementCount, measurementsPerM
 GET /statistics/descriptive — Aggregated statistics. Params: boxId, phenomenon, from-date, to-date, operation (arithmeticMean/max/min/median/standardDeviation), window (ms), format (json/csv), bbox, exposure`;
 
 export function registerOpensensemapApi(server: McpServer) {
-  server.tool(
+  server.registerTool(
     "opensensemap_api",
-    `Generic tool to call any openSenseMap API endpoint directly. Use this as a fallback when the dedicated tools (search_boxes, get_box_info, get_sensor_data, get_platform_stats) don't cover your needs.\n\n${ENDPOINT_DOCS}`,
     {
-      path: z
-        .string()
-        .describe(
-          "API path with path parameters substituted, e.g. '/boxes/abc123/data/sensor456'"
-        ),
-      params: z
-        .record(z.string(), z.string())
-        .optional()
-        .describe("Query parameters as key-value pairs"),
-      method: z
-        .enum(["GET", "POST"])
-        .optional()
-        .default("GET")
-        .describe("HTTP method (default: GET)"),
+      description: `Generic tool to call any openSenseMap staging API endpoint directly. Use this as a fallback when the dedicated tools (search_boxes, get_box_info, get_sensor_data, get_platform_stats) don't cover your needs. Note: This queries the staging instance only.\n\n${ENDPOINT_DOCS}`,
+      inputSchema: {
+        path: z
+          .string()
+          .describe(
+            "API path with path parameters substituted, e.g. '/boxes/abc123/data/sensor456'"
+          ),
+        params: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe("Query parameters as key-value pairs"),
+        method: z
+          .enum(["GET", "POST"])
+          .optional()
+          .default("GET")
+          .describe("HTTP method (default: GET)"),
+      },
     },
     async ({ path, params, method }) => {
       const result = await osemFetch<unknown>({
