@@ -17,6 +17,7 @@ const schema = z.object({
 	MYBADGES_CLIENT_ID: z.string(),
 	MYBADGES_CLIENT_SECRET: z.string(),
 	DISCOURSE_URL: z.string().url(),
+	AGENT_API_URL: z.string().optional(),
 })
 
 declare global {

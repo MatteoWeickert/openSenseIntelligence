@@ -22,5 +22,24 @@
 	"Password": "Passwort",
 	"Delete": "Löschen",
 	"Photo": "Profilbild",
-	"new_device": "Neues Gerät"
+	"new_device": "Neues Gerät",
+	"agent.tab.filter": "Filter",
+	"agent.tab.ask": "Fragen",
+	"agent.input.placeholder": "Frage stellen…",
+	"agent.submit.label": "Senden",
+	"agent.apply.label": "Filter anwenden",
+	"agent.apply.confirmed": "Filter wurden angewendet!",
+	"agent.reset.label": "Zurücksetzen",
+	"agent.loading": "Wird verarbeitet…",
+	"agent.error.generic": "Ein Fehler ist aufgetreten. Bitte erneut versuchen.",
+	"agent.error.retry": "Wiederholen",
+	"agent.empty": "Keine Ergebnisse für Ihre Anfrage gefunden.",
+	"agent.steps.label": "Meine Überlegung",
+	"agent.lowConfidence": "Ich bin nicht ganz sicher — bitte vor dem Anwenden prüfen.",
+	"agent.undo.label": "Rückgängig",
+	"agent.suggestions": [
+		"Erkläre mir den PM10-Wert",
+		"Was sagt die Luftfeuchte aus?",
+		"Zeige alle Sensoren die Temperatur messen"
+	]
 }

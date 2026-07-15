@@ -15,6 +15,11 @@ export default defineConfig(({ mode }) => {
 	return {
 		server: {
 			port: 3000,
+			// Pre-transform entry files so the first request is fast
+			warmup: {
+				clientFiles: ['./app/entry.client.tsx', './app/root.tsx'],
+				ssrFiles: ['./app/entry.server.tsx', './app/root.tsx'],
+			},
 		},
 		plugins: [
 			tailwindcss(),
@@ -23,6 +28,28 @@ export default defineConfig(({ mode }) => {
 			mode === 'test' ? null : reactRouter(),
 			preserveDirectives(), // makes sure directives such as "use client" are present in the output bundle
 		],
+		// Pre-bundle deps at startup so the first browser request doesn't trigger
+		// an on-the-fly re-optimization and full-page reload.
+		optimizeDeps: {
+			include: [
+				'react',
+				'react-dom',
+				'react/jsx-runtime',
+				'react-i18next',
+				'i18next',
+				'react-router',
+				'@radix-ui/react-slot',
+				'@radix-ui/react-toast',
+				'class-variance-authority',
+				'clsx',
+				'i18next-browser-languagedetector',
+				'i18next-http-backend',
+				'lucide-react',
+				'remix-i18next/client',
+				'tailwind-merge',
+				'tiny-invariant',
+			],
+		},
 		test: {
 			globals: true,
 			environment: 'jsdom',

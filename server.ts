@@ -1,3 +1,4 @@
+import http from "node:http";
 import path from "node:path";
 import url from "node:url";
 import "dotenv/config";
@@ -33,17 +34,25 @@ app.use(morgan("tiny"));
 // MCP endpoint – available in both dev and prod
 app.use("/mcp", mcpRouter);
 
+// Create the HTTP server object before calling listen so we can pass it to
+// Vite's HMR config. HMR will piggyback on port 3000 via the 'upgrade'
+// event rather than binding its own port (24678), preventing EADDRINUSE on
+// dev-server restarts.
+const server = http.createServer(app);
+
 if (IS_PROD) {
-  // Production: serve the pre-built app bundle
   const build = await import(
     url.pathToFileURL(path.resolve("build/server/index.js")).href
   );
   app.all("*", createRequestHandler({ build, mode: MODE }));
 } else {
-  // Development: use Vite middleware for HMR
+  console.log("[server] initializing vite…");
   const vite = await import("vite");
   const viteDevServer = await vite.createServer({
-    server: { middlewareMode: true },
+    server: {
+      middlewareMode: true,
+      hmr: { server },
+    },
   });
   app.use(viteDevServer.middlewares);
   app.all("*", (req, res, next) => {
@@ -56,7 +65,9 @@ if (IS_PROD) {
   });
 }
 
-const server = app.listen(PORT, HOST, () => {
+// Call listen after all middleware/routes are registered so no request can
+// arrive before the app is fully wired up.
+server.listen(PORT, HOST, () => {
   console.log(`[server] ${MODE} – http://localhost:${PORT}`);
 });
 

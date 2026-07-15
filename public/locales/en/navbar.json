@@ -22,5 +22,24 @@
 	"Password": "Password",
 	"Delete": "Delete",
 	"Photo": "Photo",
-	"new_device": "New Device"
+	"new_device": "New Device",
+	"agent.tab.filter": "Filter",
+	"agent.tab.ask": "Ask",
+	"agent.input.placeholder": "Ask a question about sensor data…",
+	"agent.submit.label": "Send",
+	"agent.apply.label": "Apply Filters",
+	"agent.apply.confirmed": "Filters applied!",
+	"agent.reset.label": "Reset",
+	"agent.loading": "Thinking…",
+	"agent.error.generic": "Something went wrong. Please try again.",
+	"agent.error.retry": "Retry",
+	"agent.empty": "No results found for your query.",
+	"agent.steps.label": "How I got here",
+	"agent.lowConfidence": "I'm not fully confident — please review before applying.",
+	"agent.undo.label": "Undo",
+	"agent.suggestions": [
+		"Explain the PM10 value to me",
+		"What does humidity tell us?",
+		"Show all sensors that measure temperature"
+	]
 }

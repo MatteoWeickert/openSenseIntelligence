@@ -4,7 +4,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "tsx --watch ./server.ts",
+    "dev": "tsx watch --exclude '.react-router/**' ./server.ts",
     "build": "run-s build:*",
     "build:drizzle": "npm run db:generate",
     "build:react-router": "react-router build",
@@ -122,6 +122,7 @@
     "react-hook-form": "^7.73.1",
     "react-i18next": "^17.0.6",
     "react-map-gl": "^8.1.1",
+    "react-markdown": "^10.1.0",
     "react-router": "^7.14.2",
     "remix-i18next": "^7.5.0",
     "rollup-preserve-directives": "^1.1.3",

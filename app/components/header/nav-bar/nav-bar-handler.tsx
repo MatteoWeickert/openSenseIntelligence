@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Search from '~/components/search'
 import FilterPanel from './filter-panel'
 import AgentPanel from './agent/agent-panel'
@@ -16,6 +17,7 @@ export default function NavbarHandler({
 	devices,
 	searchString,
 }: NavBarHandlerProps) {
+	const { t } = useTranslation('navbar')
 	const [activeTab, setActiveTab] = useState<ActiveTab>('filter')
 	const isSearching = searchString.trim().length >= 2
 
@@ -36,7 +38,7 @@ export default function NavbarHandler({
 							: 'text-zinc-500 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/8',
 					)}
 				>
-					Filter
+					{t('agent.tab.filter')}
 				</button>
 				<button
 					type="button"
@@ -48,15 +50,11 @@ export default function NavbarHandler({
 							: 'text-zinc-500 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/8',
 					)}
 				>
-					Ask
+					{t('agent.tab.ask')}
 				</button>
 			</div>
 
-			{activeTab === 'filter' ? (
-				<FilterPanel />
-			) : (
-				<AgentPanel />
-			)}
+			{activeTab === 'filter' ? <FilterPanel /> : <AgentPanel />}
 		</div>
 	)
 }
