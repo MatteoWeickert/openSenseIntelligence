@@ -2,26 +2,61 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { osemFetch, getBaseUrl } from "../lib/api-client";
 
-const ENDPOINT_DOCS = `Available openSenseMap API endpoints:
+/**
+ * Fetches the available API routes from the root endpoint and caches them.
+ */
+let cachedEndpointDocs: string | null = null;
 
-GET /boxes — List/search stations. Params: name, near (lat,lng), maxDistance, bbox (lonSW,latSW,lonNE,latNE), exposure, grouptag, model, limit (max 20), minimal (true/false)
+async function getEndpointDocs(): Promise<string> {
+  if (cachedEndpointDocs) return cachedEndpointDocs;
+
+  try {
+    const baseUrl = getBaseUrl();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch(baseUrl, { signal: controller.signal });
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("json")) {
+        const json = await res.json();
+        cachedEndpointDocs = JSON.stringify(json, null, 2);
+      } else {
+        cachedEndpointDocs = await res.text();
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    cachedEndpointDocs = "(Could not fetch endpoint list from API root)";
+  }
+  return cachedEndpointDocs;
+}
+
+const STATIC_DESCRIPTION = `Generic tool to call any openSenseMap staging API endpoint directly. Use this as a fallback when the dedicated tools (search_boxes, get_box_info, get_sensor_data, get_platform_stats) don't cover your needs. Note: This queries the staging instance only.
+
+Key public endpoints:
+GET /boxes — List/search stations. Params: name, near (lat,lng), maxDistance, bbox (lonSW,latSW,lonNE,latNE), exposure, grouptag, model, limit, minimal
 GET /boxes/:id — Get single station with sensors and last measurements
 GET /boxes/:id/sensors — Get latest measurements of all sensors (with optional count param, 1-100)
+GET /boxes/:id/sensors/:sensorId — Get latest measurement of a single sensor
 GET /boxes/:id/data/:sensorId — Get up to 10000 measurements. Params: from-date, to-date, format (json/csv), outliers (mark/replace), outlier-window (1-50)
 GET /boxes/:id/locations — Location history. Params: from-date, to-date, format (json/geojson)
+GET /boxes/data — Stream measurements across devices and sensors. Params: boxId, phenomenon, from-date, to-date, bbox, exposure, format, delimiter, separator
 GET /stats — Platform statistics [boxCount, measurementCount, measurementsPerMinute]
-GET /statistics/descriptive — Aggregated statistics. Params: boxId, phenomenon, from-date, to-date, operation (arithmeticMean/max/min/median/standardDeviation), window (ms), format (json/csv), bbox, exposure`;
+GET /tags — List known device tags
+
+Use path "/" to see all available routes dynamically.`;
 
 export function registerOpensensemapApi(server: McpServer) {
   server.registerTool(
     "opensensemap_api",
     {
-      description: `Generic tool to call any openSenseMap staging API endpoint directly. Use this as a fallback when the dedicated tools (search_boxes, get_box_info, get_sensor_data, get_platform_stats) don't cover your needs. Note: This queries the staging instance only.\n\n${ENDPOINT_DOCS}`,
+      description: STATIC_DESCRIPTION,
       inputSchema: {
         path: z
           .string()
           .describe(
-            "API path with path parameters substituted, e.g. '/boxes/abc123/data/sensor456'"
+            "API path with path parameters substituted, e.g. '/boxes/abc123/data/sensor456'. Use '/' to list all available routes."
           ),
         params: z
           .record(z.string(), z.string())
@@ -35,6 +70,19 @@ export function registerOpensensemapApi(server: McpServer) {
       },
     },
     async ({ path, params, method }) => {
+      // If requesting root, return cached endpoint docs
+      if (path === "/") {
+        const docs = await getEndpointDocs();
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `API Routes (${getBaseUrl()}):\n\n${docs}`,
+            },
+          ],
+        };
+      }
+
       const result = await osemFetch<unknown>({
         path,
         params: params as Record<string, string> | undefined,

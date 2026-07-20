@@ -23,20 +23,20 @@ services:
       - '8025:8025'
       - '1025:1025'
 
-  agent:
-    build: ./agent
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    environment:
-      - LLM_MODEL=${LLM_MODEL}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+  # agent:
+  #   build: ./agent
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - LLM_MODEL=${LLM_MODEL}
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
 
   rustfs:
     image: rustfs/rustfs:latest

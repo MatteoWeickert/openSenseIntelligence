@@ -36,9 +36,9 @@ export function registerArchiveGetSensorData(server: McpServer) {
         limit: z
           .number()
           .optional()
-          .default(200)
+          .default(5000)
           .describe(
-            "Max data points to return (default: 200). Data is downsampled if more points exist."
+            "Max data points to return (default: 5000). Data is downsampled if more points exist."
           ),
         exportFormat: z
           .enum(["json", "csv"])
@@ -91,7 +91,7 @@ export function registerArchiveGetSensorData(server: McpServer) {
         if (meta) break;
       }
 
-      const sensorInfo = meta?.sensors.find((s) => s.id === sensorId);
+      const sensorInfo = meta?.sensors.find((s) => (s._id ?? s.id) === sensorId);
 
       // Fetch CSV data for all dates
       const allMeasurements: ArchiveMeasurement[] = [];
@@ -133,8 +133,10 @@ export function registerArchiveGetSensorData(server: McpServer) {
 
       // Convert to MeasurementPoint format for summarize/downsample
       const measurementPoints = allMeasurements.map((m) => ({
+        sensor_id: sensorId,
         time: m.createdAt,
-        value: m.value,
+        value: parseFloat(m.value),
+        location_id: null,
       }));
 
       const sensorLabel = sensorInfo

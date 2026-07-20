@@ -4,15 +4,21 @@ const ARCHIVE_BASE_URL =
 export interface ArchiveBoxMeta {
   name: string;
   id: string;
-  boxType: string;
+  boxType?: string;
   exposure: string | null;
   model: string | null;
-  loc: {
+  loc?: {
     geometry: {
       coordinates: [number, number];
       type: string;
     };
   };
+  locations?: Array<{
+    type: string;
+    coordinates: [number, number];
+  }>;
+  longitude?: number;
+  latitude?: number;
   sensors: ArchiveSensor[];
 }
 
@@ -21,6 +27,7 @@ export interface ArchiveSensor {
   unit: string;
   sensorType: string;
   id: string;
+  _id?: string;
 }
 
 export interface ArchiveMeasurement {
@@ -33,6 +40,38 @@ export interface ArchiveMeasurement {
  */
 function normalizeBoxName(name: string): string {
   return name.replace(/[\u00A0-\u10FFFF]/g, "__").replace(/[^A-Za-z0-9._-]/g, "_");
+}
+
+/**
+ * Escape special regex characters in a string.
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Reduce a string to its lowercase alphanumeric skeleton for fuzzy comparison.
+ * Strips all non-alphanumeric chars (underscores, spaces, unicode) so that
+ * "Waldschlößchen", "Waldschl__sschen", "Waldschl_sschen" all become "waldschlsschen".
+ */
+function toAlphanumSkeleton(str: string): string {
+  return str.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+}
+
+/**
+ * Extract coordinates [lat, lng] from archive metadata (handles different formats).
+ */
+export function getArchiveCoordinates(meta: ArchiveBoxMeta): [number, number] | null {
+  if (meta.loc?.geometry?.coordinates) {
+    return [meta.loc.geometry.coordinates[1], meta.loc.geometry.coordinates[0]];
+  }
+  if (meta.locations?.[0]?.coordinates) {
+    return [meta.locations[0].coordinates[1], meta.locations[0].coordinates[0]];
+  }
+  if (meta.latitude !== undefined && meta.longitude !== undefined) {
+    return [meta.latitude, meta.longitude];
+  }
+  return null;
 }
 
 /**
@@ -153,12 +192,13 @@ function parseCsv(raw: string): ArchiveMeasurement[] {
 }
 
 /**
- * Try to resolve the box slug by fetching the day listing and matching by ID prefix.
- * Useful when the exact box name normalization is unknown.
+ * Try to resolve the box slug by fetching the day listing and matching by ID or name.
+ * First tries matching by box ID prefix. If that fails, tries matching by normalized box name.
  */
 export async function resolveBoxSlugFromListing(
   boxId: string,
   date: string,
+  boxName?: string,
   timeout = 15000
 ): Promise<string | null> {
   const url = `${ARCHIVE_BASE_URL}/${date}/`;
@@ -171,13 +211,53 @@ export async function resolveBoxSlugFromListing(
     if (!res.ok) return null;
     const html = await res.text();
 
-    // Parse directory listing links: <a href="./BOXID-NAME/">
-    const regex = new RegExp(
+    // Strategy 1: Match by staging box ID
+    const idRegex = new RegExp(
       `<a\\s+href="\\.\\/(${boxId}-[^"]*?)\\/"`,
       "i"
     );
-    const match = html.match(regex);
-    return match ? match[1] : null;
+    const idMatch = html.match(idRegex);
+    if (idMatch) return idMatch[1];
+
+    // Strategy 2: Match by box name (handles different IDs between staging/production)
+    if (boxName) {
+      const normalized = normalizeBoxName(boxName);
+      // Try exact normalized name match (case-insensitive)
+      const nameRegex = new RegExp(
+        `<a\\s+href="\\.\\/([^"]*?-${escapeRegex(normalized)})\\/"`,
+        "i"
+      );
+      const nameMatch = html.match(nameRegex);
+      if (nameMatch) return nameMatch[1];
+
+      // Try without spaces/underscores (e.g. "Green Guard" -> "GreenGuard")
+      const compactName = boxName.replace(/\s+/g, "");
+      const compactRegex = new RegExp(
+        `<a\\s+href="\\.\\/([^"]*?-${escapeRegex(compactName)})\\/"`,
+        "i"
+      );
+      const compactMatch = html.match(compactRegex);
+      if (compactMatch) return compactMatch[1];
+
+      // Strategy 3: Fuzzy match — collapse underscores and compare alphanumeric skeleton
+      // Handles different unicode normalization (e.g. ö→"__" vs ö→"_")
+      const skeleton = toAlphanumSkeleton(boxName);
+      if (skeleton.length >= 3) {
+        const allLinks = [...html.matchAll(/<a\s+href="\.\/([^"]+?)\/">/gi)];
+        for (const link of allLinks) {
+          const slug = link[1];
+          // Extract name part after the ID prefix (ID-Name format)
+          const dashIdx = slug.indexOf("-");
+          if (dashIdx === -1) continue;
+          const namePart = slug.slice(dashIdx + 1);
+          if (toAlphanumSkeleton(namePart) === skeleton) {
+            return slug;
+          }
+        }
+      }
+    }
+
+    return null;
   } catch {
     return null;
   } finally {
@@ -197,25 +277,36 @@ export async function fetchBoxMetaWithFallback(
   const meta = await fetchBoxMeta(boxId, boxName, date);
   if (meta) return meta;
 
-  // Fallback: resolve actual slug from directory listing
-  const slug = await resolveBoxSlugFromListing(boxId, date);
+  // Fallback: resolve actual slug from directory listing (by ID or name)
+  const slug = await resolveBoxSlugFromListing(boxId, date, boxName);
   if (!slug) return null;
 
-  // Fetch JSON using resolved slug
-  const filename = `${slug}-${date}.json`;
-  const url = `${ARCHIVE_BASE_URL}/${date}/${slug}/${filename}`;
+  // Try multiple filename patterns (archive uses inconsistent naming)
+  const candidates = [
+    `${slug}-${date}.json`,                        // full slug as filename
+    `${normalizeBoxName(boxName)}-${date}.json`,   // just normalized name
+    `${boxName.replace(/\s+/g, "")}-${date}.json`, // compact name (no spaces)
+  ];
 
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return (await res.json()) as ArchiveBoxMeta;
-  } catch {
-    return null;
+  for (const filename of candidates) {
+    const url = `${ARCHIVE_BASE_URL}/${date}/${slug}/${filename}`;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        return (await res.json()) as ArchiveBoxMeta;
+      }
+    } catch {
+      continue;
+    }
   }
+
+  return null;
 }
 
 /**
  * Fetch sensor CSV with fallback slug resolution.
+ * If the slug was resolved by name (different archive ID), it also resolves
+ * sensor IDs by fetching the archive metadata and matching sensors by title.
  */
 export async function fetchSensorCsvWithFallback(
   boxId: string,
@@ -227,11 +318,64 @@ export async function fetchSensorCsvWithFallback(
   const data = await fetchSensorCsv(boxId, boxName, sensorId, date);
   if (data) return data;
 
-  // Fallback: resolve slug
-  const slug = await resolveBoxSlugFromListing(boxId, date);
+  // Fallback: resolve slug (by ID or name)
+  const slug = await resolveBoxSlugFromListing(boxId, date, boxName);
   if (!slug) return null;
 
-  const filename = `${sensorId}-${date}.csv`;
+  // Check if the resolved slug uses a different box ID (production vs staging)
+  const archiveBoxId = slug.split("-")[0];
+  let targetSensorId = sensorId;
+
+  if (archiveBoxId !== boxId) {
+    // Different IDs: need to resolve sensor ID via metadata
+    // Try multiple filename patterns for the metadata JSON
+    const metaCandidates = [
+      `${slug}-${date}.json`,
+      `${normalizeBoxName(boxName)}-${date}.json`,
+      `${boxName.replace(/\s+/g, "")}-${date}.json`,
+    ];
+
+    let meta: ArchiveBoxMeta | null = null;
+    for (const metaFilename of metaCandidates) {
+      const metaUrl = `${ARCHIVE_BASE_URL}/${date}/${slug}/${metaFilename}`;
+      try {
+        const metaRes = await fetch(metaUrl);
+        if (metaRes.ok) {
+          meta = (await metaRes.json()) as ArchiveBoxMeta;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (meta) {
+      // Try to find the archive sensor by matching title with staging sensor info
+      const archiveSensorIds = meta.sensors.map((s) => s._id ?? s.id);
+      // Try the sensorId directly first
+      const directFilename = `${sensorId}-${date}.csv`;
+      const directUrl = `${ARCHIVE_BASE_URL}/${date}/${slug}/${directFilename}`;
+      try {
+        const directRes = await fetch(directUrl);
+        if (directRes.ok) {
+          const text = await directRes.text();
+          return parseCsv(text);
+        }
+      } catch {
+        // continue
+      }
+      // Sensor ID doesn't match — try all archive sensors
+      // (callers should use archive_get_box_data to discover proper sensor IDs)
+      for (const archiveSensor of archiveSensorIds) {
+        if (archiveSensor) {
+          targetSensorId = archiveSensor;
+          break;
+        }
+      }
+    }
+  }
+
+  const filename = `${targetSensorId}-${date}.csv`;
   const url = `${ARCHIVE_BASE_URL}/${date}/${slug}/${filename}`;
 
   try {

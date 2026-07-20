@@ -264,3 +264,8 @@ your local database). Then simply run `npm test`.
 ## License
 
 [MIT](LICENSE) - openSenseLab 2026
+
+Problem mit Archiv-Tools:
+- ID auf der Staging Version ist verschieden zu denen im Archiv, weil die im Archiv von der ProduktionsOpensensemap kommen
+- Das heißt es ist kein Matching möglich
+- Wir suchen deshalb jetzt 

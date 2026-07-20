@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   fetchBoxMetaWithFallback,
   fetchSensorCsvWithFallback,
+  getArchiveCoordinates,
   getDateRange,
   type ArchiveMeasurement,
 } from "../lib/archive-client";
@@ -91,7 +92,11 @@ export function registerArchiveGetBoxData(server: McpServer) {
       }
 
       // Filter sensors by type if requested
-      let sensors = meta.sensors;
+      // Normalize sensor IDs (_id -> id) for consistency
+      let sensors = meta.sensors.map((s) => ({
+        ...s,
+        id: s._id ?? s.id,
+      }));
       if (sensorType) {
         sensors = sensors.filter(
           (s) => s.sensorType.toLowerCase() === sensorType.toLowerCase()
@@ -116,10 +121,11 @@ export function registerArchiveGetBoxData(server: McpServer) {
           (s) => `  - ${s.title} [${s.sensorType}] (${s.unit}) — ID: ${s.id}`
         );
 
+        const coords = getArchiveCoordinates(meta);
         const text = [
           `**Archive Data Overview: ${meta.name}** (${meta.id})`,
-          `Location: [${meta.loc.geometry.coordinates[1]}, ${meta.loc.geometry.coordinates[0]}]`,
-          `Exposure: ${meta.exposure ?? "unknown"} | Type: ${meta.boxType}`,
+          `Location: [${coords?.[0] ?? "?"},  ${coords?.[1] ?? "?"}]`,
+          `Exposure: ${meta.exposure ?? "unknown"} | Model: ${meta.model ?? "unknown"}`,
           ``,
           `Date range: ${fromDate} to ${toDate} (${dates.length} days)`,
           ``,
@@ -207,10 +213,11 @@ export function registerArchiveGetBoxData(server: McpServer) {
         const filenameHint = `archive-${boxId}-${fromDate}-to-${toDate}`;
         const result = await createExport(allExportData, exportFormat, filenameHint);
 
+        const exportCoords = getArchiveCoordinates(meta);
         const text = [
           `**Archive Data Export Complete: ${meta.name}** (${meta.id})`,
-          `Location: [${meta.loc.geometry.coordinates[1]}, ${meta.loc.geometry.coordinates[0]}]`,
-          `Exposure: ${meta.exposure ?? "unknown"} | Type: ${meta.boxType}`,
+          `Location: [${exportCoords?.[0] ?? "?"}, ${exportCoords?.[1] ?? "?"}]`,
+          `Exposure: ${meta.exposure ?? "unknown"} | Model: ${meta.model ?? "unknown"}`,
           `Period: ${fromDate} to ${toDate} (${fetchDates.length} days)`,
           ``,
           `Records exported: ${result.records.toLocaleString()}`,
@@ -227,10 +234,11 @@ export function registerArchiveGetBoxData(server: McpServer) {
         return { content: [{ type: "text" as const, text }] };
       }
 
+      const dataCoords = getArchiveCoordinates(meta);
       const text = [
         `**Archive Data: ${meta.name}** (${meta.id})`,
-        `Location: [${meta.loc.geometry.coordinates[1]}, ${meta.loc.geometry.coordinates[0]}]`,
-        `Exposure: ${meta.exposure ?? "unknown"} | Type: ${meta.boxType}`,
+        `Location: [${dataCoords?.[0] ?? "?"}, ${dataCoords?.[1] ?? "?"}]`,
+        `Exposure: ${meta.exposure ?? "unknown"} | Model: ${meta.model ?? "unknown"}`,
         `Period: ${fromDate} to ${toDate} (${dates.length} days)`,
         ``,
         `Sensor Data Summary:`,
