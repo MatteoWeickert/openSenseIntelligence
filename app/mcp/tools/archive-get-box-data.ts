@@ -15,7 +15,9 @@ export function registerArchiveGetBoxData(server: McpServer) {
     {
       description:
         "Get archived measurement data for a senseBox station from the openSenseMap archive. " +
-        "The archive contains ALL historical data since 2014. " +
+        "Use this tool ONLY if the user explicitly requests historical data for a box. " +
+        "For recent data (last 2 years) use get_box_info instead. " +
+        "The archive contains historical data since 2014. " +
         "IMPORTANT: Always use search_boxes or get_box_info first to find the box ID and name from the staging instance — " +
         "only boxes registered on the staging platform can be queried here. " +
         "Returns metadata about available sensors and their data for the specified date range. " +

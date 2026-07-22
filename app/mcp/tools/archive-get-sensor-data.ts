@@ -14,7 +14,9 @@ export function registerArchiveGetSensorData(server: McpServer) {
     "archive_get_sensor_data",
     {
       description:
-        "Get detailed time series data for a specific sensor from the openSenseMap archive. " +
+        "Get detailed time series data for OLDER historical data of a specific sensor from the openSenseMap archive. " +
+        "Use this tool ONLY if the user explicitly requests historical data for a box. " +
+        "For recent data (last 2 years) use get_sensor_data instead. " +
         "Returns measurements with automatic downsampling and statistical summary. " +
         "IMPORTANT: Always use search_boxes first to discover boxes on the staging instance, then use get_box_info or archive_get_box_data to find sensor IDs. " +
         "Only boxes registered on the staging platform should be queried. " +

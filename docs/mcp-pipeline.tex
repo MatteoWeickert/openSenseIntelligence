@@ -1,0 +1,160 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[utf8]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, decorations.pathreplacing}
+
+% ============================================================================
+% MCP Request Pipeline / Sequence Diagram
+% ============================================================================
+
+\begin{document}
+
+\begin{tikzpicture}[
+    % Styles
+    actor/.style={
+        rectangle, rounded corners=3pt, draw=#1, fill=#1!10,
+        minimum width=2.8cm, minimum height=0.8cm,
+        font=\small\sffamily\bfseries, align=center, line width=0.8pt
+    },
+    actor/.default=black,
+    step/.style={
+        rectangle, rounded corners=2pt, draw=black!40, fill=white,
+        minimum width=2.4cm, minimum height=0.6cm,
+        font=\scriptsize\sffamily, align=center, line width=0.5pt
+    },
+    msg/.style={
+        -{Stealth[length=5pt]}, line width=0.6pt, #1
+    },
+    msg/.default=black!70,
+    msglabel/.style={
+        font=\scriptsize\sffamily, text=black!70, fill=white, inner sep=1pt
+    },
+    lifeline/.style={
+        dashed, draw=black!30, line width=0.4pt
+    },
+    activation/.style={
+        rectangle, draw=#1!60, fill=#1!15, minimum width=0.4cm, line width=0.5pt
+    },
+    activation/.default=blue,
+    note/.style={
+        rectangle, rounded corners=2pt, draw=yellow!70!black, fill=yellow!10,
+        font=\scriptsize\sffamily\itshape, align=left, inner sep=4pt, line width=0.5pt
+    },
+    title/.style={
+        font=\large\sffamily\bfseries
+    },
+    phase/.style={
+        font=\scriptsize\sffamily\bfseries, text=#1
+    },
+    phase/.default=black!50
+]
+
+% Title
+\node[title] at (5, 1) {MCP Request Processing Pipeline};
+
+% ── Actors (columns) ───────────────────────────────────────────────────────
+\def\ystart{-0.5}
+\def\yend{-18}
+
+\node[actor=purple!70] (client) at (0, \ystart) {AI Client};
+\node[actor=orange!70] (router) at (3.5, \ystart) {MCP Router};
+\node[actor=orange!60] (server) at (6.5, \ystart) {MCP Server};
+\node[actor=green!60!black] (tools) at (9.5, \ystart) {Tool Handler};
+\node[actor=red!60] (api) at (12.5, \ystart) {External API};
+
+% Lifelines
+\foreach \x in {0, 3.5, 6.5, 9.5, 12.5} {
+    \draw[lifeline] (\x, \ystart-0.5) -- (\x, \yend);
+}
+
+% ── Phase 1: Connection ────────────────────────────────────────────────────
+\def\y{-1.8}
+\node[phase=purple!70, anchor=west] at (-1.5, \y+0.4) {Phase 1: Transport};
+
+% POST /mcp
+\draw[msg=purple!60] (0, \y) -- node[msglabel, above] {\texttt{POST /mcp}} (3.5, \y);
+
+% Create transport + server
+\draw[msg=orange!60] (3.5, \y-0.6) -- node[msglabel, above] {create transport} (6.5, \y-0.6);
+\node[note, anchor=west] at (7.2, \y-0.6) {StreamableHTTP\\(stateless, no session)};
+
+% Connect
+\draw[msg=orange!60] (3.5, \y-1.4) -- node[msglabel, above] {\texttt{server.connect(transport)}} (6.5, \y-1.4);
+
+% Handle request
+\draw[msg=orange!60] (3.5, \y-2.2) -- node[msglabel, above] {\texttt{transport.handleRequest()}} (6.5, \y-2.2);
+
+% ── Phase 2: Tool Discovery (optional) ────────────────────────────────────
+\def\y{-5.0}
+\node[phase=blue!70, anchor=west] at (-1.5, \y+0.4) {Phase 2: Tool Discovery};
+
+\draw[msg=purple!60] (0, \y) -- node[msglabel, above] {\texttt{tools/list}} (3.5, \y);
+\draw[msg=orange!60] (3.5, \y-0.1) -- (6.5, \y-0.1);
+\draw[msg=orange!60, dashed] (6.5, \y-0.7) -- node[msglabel, above] {8 tools + schemas} (3.5, \y-0.7);
+\draw[msg=purple!60, dashed] (3.5, \y-0.8) -- node[msglabel, below] {tool definitions (JSON)} (0, \y-0.8);
+
+\node[note, anchor=west] at (7.2, \y-0.3) {Returns all registered\\tools with inputSchema\\(Zod → JSON Schema)};
+
+% ── Phase 3: Tool Invocation ──────────────────────────────────────────────
+\def\y{-7.5}
+\node[phase=green!60!black, anchor=west] at (-1.5, \y+0.4) {Phase 3: Tool Call};
+
+% Client calls tool
+\draw[msg=purple!60] (0, \y) -- node[msglabel, above] {\texttt{tools/call} \{name, arguments\}} (3.5, \y);
+\draw[msg=orange!60] (3.5, \y-0.1) -- (6.5, \y-0.1);
+
+% Server dispatches to tool handler
+\draw[msg=green!50!black] (6.5, \y-0.7) -- node[msglabel, above] {dispatch to handler} (9.5, \y-0.7);
+
+% Tool validates input
+\node[note, anchor=west] at (10.2, \y-0.7) {Zod schema\\validation};
+
+% ── Phase 4: API Call ─────────────────────────────────────────────────────
+\def\y{-9.5}
+\node[phase=red!60, anchor=west] at (-1.5, \y+0.4) {Phase 4: Data Fetch};
+
+% Tool → External API
+\draw[msg=red!50] (9.5, \y) -- node[msglabel, above] {\texttt{osemFetch(\{path, params\})}} (12.5, \y);
+
+\node[note, anchor=west] at (10.2, \y-0.7) {staging.opensensemap.org\\or archive.opensensemap.org};
+
+% API response
+\draw[msg=red!50, dashed] (12.5, \y-1.3) -- node[msglabel, above] {JSON response} (9.5, \y-1.3);
+
+% ── Phase 5: Response Processing ─────────────────────────────────────────
+\def\y{-12.2}
+\node[phase=teal, anchor=west] at (-1.5, \y+0.4) {Phase 5: Processing};
+
+% Tool processes data
+\node[step] (process) at (9.5, \y) {Format / Summarize\\/ Downsample};
+
+\node[note, anchor=west] at (10.8, \y-0.7) {summarizeMeasurements()\\downsample() (LTTB)\\Haversine distance calc};
+
+% ── Phase 6: Response ────────────────────────────────────────────────────
+\def\y{-14.0}
+\node[phase=purple!70, anchor=west] at (-1.5, \y+0.4) {Phase 6: Response};
+
+% Tool → Server → Router → Client
+\draw[msg=green!50!black, dashed] (9.5, \y) -- node[msglabel, above] {content: [\{type: "text", text\}]} (6.5, \y);
+\draw[msg=orange!60, dashed] (6.5, \y-0.1) -- (3.5, \y-0.1);
+\draw[msg=purple!60, dashed] (3.5, \y-0.7) -- node[msglabel, above] {MCP result (JSON-RPC)} (0, \y-0.7);
+
+% ── Phase 7: Cleanup ────────────────────────────────────────────────────
+\def\y{-15.8}
+\node[phase=gray, anchor=west] at (-1.5, \y+0.4) {Phase 7: Cleanup};
+
+\draw[msg=gray] (3.5, \y) -- node[msglabel, above] {\texttt{transport.close()}} (6.5, \y);
+\draw[msg=gray] (3.5, \y-0.6) -- node[msglabel, above] {\texttt{server.close()}} (6.5, \y-0.6);
+
+\node[note, anchor=west] at (7.2, \y-0.3) {Stateless: server instance\\destroyed after each request};
+
+% ── Legend ──────────────────────────────────────────────────────────────────
+\begin{scope}[shift={(-1, -17.5)}]
+    \draw[msg=black!70] (0, 0) -- ++(1.2, 0) node[right, msglabel] {Request};
+    \draw[msg=black!70, dashed] (4, 0) -- ++(1.2, 0) node[right, msglabel] {Response};
+    \node[note, anchor=west] at (8, 0) {Note};
+\end{scope}
+
+\end{tikzpicture}
+
+\end{document}

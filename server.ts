@@ -31,6 +31,11 @@ if (IS_PROD) {
 
 app.use(morgan("tiny"));
 
+// Reject OAuth discovery probes from MCP clients (no auth required)
+app.use("/.well-known", (_req, res) => {
+  res.status(404).end();
+});
+
 // MCP endpoint – available in both dev and prod
 app.use("/mcp", mcpRouter);
 
